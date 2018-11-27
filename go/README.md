@@ -139,7 +139,7 @@ Before we can start using sensuctl, we'll need to configure it.
 
 ```
 $ sensuctl configure
-? Sensu Backend URL: http://127.0.0.1:8080
+? Sensu Backend URL: http://sensu.local
 ? Username: admin
 ? Password: P@ssw0rd!
 ? Namespace: default
