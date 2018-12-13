@@ -28,15 +28,15 @@ The dummy app has three endpoints: `/` returns the local hostname, `/healthz` re
 **3. Clone this repo.**
 
 ```
-$ git clone git@github.com:sensu/sensu-kube-demo.git
+git clone git@github.com:sensu/sensu-kube-demo.git
 
-$ cd sensu-kube-demo
+cd sensu-kube-demo
 ```
 
 **4. Deploy the [Kubernetes NGINX Ingress Controller](https://github.com/kubernetes/ingress-nginx).**
 
 ```
-$ kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/mandatory.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/mandatory.yaml
 ```
 
 Then use the modified "ingress-nginx" Kubernetes Service definition (works with Docker for Mac).
@@ -68,20 +68,10 @@ $ git clone git@github.com:kubernetes/kube-state-metrics.git
 $ kubectl apply -f kube-state-metrics/kubernetes
 ```
 
-## Setup
-
-**1. Install the Sensu backend.**
-
-```
-$ kubectl create -f go/deploy/sensu-backend.yaml
-```
-
-**2. Install two instances of a dummy app behind a load balancer, each with a Sensu agent sidecar.**
+**8. Install two instances of a dummy app behind a load balancer, each with a Sensu agent sidecar.**
 
 ```
 $ kubectl apply -f go/deploy/dummy.yaml
-
-$ kubectl apply -f go/deploy/dummy.sensu.yaml
 ```
 
 We can check to see if the dummy app is working using:
@@ -92,7 +82,79 @@ $ curl -i http://dummy.local
 
 A `200` response indicates that the dummy app is working correctly.
 
-**3. Install InfluxDB and Grafana with Sensu agent sidecars.**
+## Set up Sensu
+
+**1. Install the Sensu backend.**
+
+```
+$ kubectl create -f go/deploy/sensu-backend.yaml
+```
+
+**2. Install sensuctl.**
+
+Jump over to the [sensuctl installation guide](https://docs.sensu.io/sensu-go/5.0/installation/install-sensu/#install-sensuctl), and follow the instructions to install sensuctl on Windows, macOS, or Linux.
+
+**3. Configure sensuctl as the admin user.**
+
+Before we can start using sensuctl, we'll need to configure it.
+
+```
+$ sensuctl configure
+? Sensu Backend URL: http://sensu.local
+? Username: admin
+? Password: P@ssw0rd!
+? Namespace: default
+? Preferred output format: tabular
+```
+
+**4. Set up multitenancy.**
+
+Create "demo" namespace
+
+```
+sensuctl namespace create demo
+```
+
+Create "dev" user role with full-access to the "demo" namespace
+
+```
+sensuctl role create dev \
+--verb get,list,create,update,delete \
+--resource \* --namespace demo
+```
+
+Create "dev" role binding for "dev" group
+
+```
+sensuctl role-binding create dev --role dev --group dev
+```
+
+Create "demo" user that is a member of the "dev" group
+
+```
+sensuctl user create demo --interactive
+```
+
+**5. Reconfigure sensuctl to use the "demo" user and "demo" namespace**
+
+```
+$ sensuctl configure
+? Sensu Backend URL: http://sensu.local
+? Username: demo
+? Password: the password you created in step 4
+? Namespace: demo
+? Preferred output format: tabular
+```
+
+## Deploy Sensu agents and monitoring stack
+
+**1. Deploy Sensu agent sidecars for the dummy apps.**
+
+```
+kubectl apply -f go/deploy/dummy.sensu.yaml
+```
+
+**2. Install InfluxDB and Grafana with Sensu agent sidecars.**
 
 Create a Kubernetes ConfigMap for InfluxDB and Grafana configurations
 
@@ -127,23 +189,6 @@ dummy-6c57b8f868-m24hw           2/2       Running   0          5d
 grafana-5b88f8df8d-vgjtm         2/2       Running   0          5d
 influxdb-78d64bcfd9-8km56        2/2       Running   0          5d
 sensu-backend-79bb558646-trl5q   1/1       Running   0          5d
-```
-
-**4. Install sensuctl.**
-
-Jump over to the [sensuctl installation guide](https://docs.sensu.io/sensu-go/5.0/installation/install-sensu/#install-sensuctl), and follow the instructions to install sensuctl on Windows, macOS, or Linux.
-
-**5. Configure sensuctl.**
-
-Before we can start using sensuctl, we'll need to configure it.
-
-```
-$ sensuctl configure
-? Sensu Backend URL: http://sensu.local
-? Username: admin
-? Password: P@ssw0rd!
-? Namespace: default
-? Preferred output format: tabular
 ```
 
 ## Monitoring an app
